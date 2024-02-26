@@ -1,0 +1,6 @@
+{
+  "scriptId":"aaa",
+  "rootDir":"path/to/project/root",
+  "parentId":["bbb"]
+}
+
