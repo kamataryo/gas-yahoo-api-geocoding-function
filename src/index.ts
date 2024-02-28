@@ -1,21 +1,28 @@
 
 function yahoo_address_search(app_id: string, query: string) {
-
+  const ns = XmlService.getNamespace("http://olp.yahooapis.jp/ydf/1.0")
   const api_endpoint = 'https://map.yahooapis.jp/geocode/V1/geoCoder'
   const url = `${api_endpoint}?appid=${app_id}&query=${encodeURIComponent(query)}`
-  const xmlText = fetch_yahoo_address_search_(url)
-  const result = parse_xml_response_(xmlText)
-  return result
-}
-
-const fetch_yahoo_address_search_ = (url: string) => {
   const response = UrlFetchApp.fetch(url)
-  return response.getContentText()
+  const xmlText = response.getContentText()
+  return parse_xml_response_(xmlText, ns, 'Address')
 }
 
-const parse_xml_response_ = (xml: string) => {
-  const document = XmlService.parse(xml)
+function yahoo_local_search(app_id: string, query: string) {
   const ns = XmlService.getNamespace("http://olp.yahooapis.jp/ydf/1.0")
+  const api_endpoint = 'https://map.yahooapis.jp/search/local/V1/localSearch'
+  const url = `${api_endpoint}?appid=${app_id}&query=${encodeURIComponent(query)}`
+  const response = UrlFetchApp.fetch(url)
+  const xmlText = response.getContentText()
+  return parse_xml_response_(xmlText, ns, 'Local')
+}
+
+const parse_xml_response_ = (
+  xml: string,
+  ns: GoogleAppsScript.XML_Service.Namespace,
+  apitype: 'Address' | 'Local',
+) => {
+  const document = XmlService.parse(xml)
   const root = document.getRootElement()
   if(root.getName() === "Error") {
     const message = root.getChild("Message").getText()
@@ -33,7 +40,7 @@ const parse_xml_response_ = (xml: string) => {
   const type = geometry.getChild("Type", ns).getText()
   const coordinates = geometry.getChild("Coordinates", ns).getText()
   const property = feature.getChild("Property", ns)
-  const addressType = property.getChild("AddressType", ns).getText()
+
 
   if(type !== "point") {
     throw new Error("ERROR: Unsupported geometry type: " + type)
@@ -45,7 +52,15 @@ const parse_xml_response_ = (xml: string) => {
     throw new Error("ERROR: Invalid coordinates: " + coordinates)
   }
 
-  return`${addressType},${lng},${lat}`
+  if(apitype === 'Address') {
+    const addressType = property.getChild("AddressType", ns).getText()
+    return`${addressType},${lng},${lat}`
+  } else if(apitype === 'Local') {
+    const name = feature.getChild("Name", ns).getText()
+    return `${name},${lng},${lat}`
+  }　else {
+    throw new Error("ERROR: Unsupported apitype: " + apitype)
+  }
 }
 
 // <?xml version=\'1.0\' encoding=\'UTF-8\'?>
